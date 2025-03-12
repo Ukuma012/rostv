@@ -1,21 +1,30 @@
 #![no_std]
 #![no_main]
 
-use core::arch::asm;
+use core::{arch::asm, ptr};
+
+mod csr;
 
 unsafe extern "C" {
-    static mut __bss: u32;
-    static __bss_end: u32;
-    static __stack_top: u32;
+    static mut __bss: u64;
+    static __bss_end: u64;
+    static __stack_top: u64;
 }
 
 #[unsafe(no_mangle)]
 fn kernel_main() {
-    loop {
-        
+    let bss = ptr::addr_of_mut!(__bss);
+    let bss_end = ptr::addr_of!(__bss_end);
+    unsafe {
+        ptr::write_bytes(bss, 0, bss_end as usize - bss as usize);
     }
+    let current_sp: u32;
+    unsafe {
+        asm!("mv {}, sp", out(reg) current_sp);
+    }
+    write_csr!("sscratch", current_sp);
+    loop {}
 }
-
 
 #[unsafe(link_section = ".text.boot")]
 #[unsafe(no_mangle)]
