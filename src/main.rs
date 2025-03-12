@@ -3,8 +3,6 @@
 
 use core::{arch::asm, ptr};
 
-mod csr;
-
 unsafe extern "C" {
     static mut __bss: u64;
     static __bss_end: u64;
@@ -18,11 +16,6 @@ fn kernel_main() {
     unsafe {
         ptr::write_bytes(bss, 0, bss_end as usize - bss as usize);
     }
-    let current_sp: u32;
-    unsafe {
-        asm!("mv {}, sp", out(reg) current_sp);
-    }
-    write_csr!("sscratch", current_sp);
     loop {}
 }
 
