@@ -10,12 +10,13 @@ unsafe extern "C" {
 }
 
 #[unsafe(no_mangle)]
-fn kernel_main() {
+fn kernel_main(hartid: usize, dtb_pa: usize) {
     let bss = ptr::addr_of_mut!(__bss);
     let bss_end = ptr::addr_of!(__bss_end);
     unsafe {
         ptr::write_bytes(bss, 0, bss_end as usize - bss as usize);
     }
+
     loop {}
 }
 
@@ -25,6 +26,9 @@ pub unsafe extern "C" fn _entry() {
     unsafe {
         asm!(
             "la sp, {stack_top}",
+            // a0: hartid, a1: device tree blobの物理アドレス
+            "mv a0, a0",
+            "mv a1, a1",
             "j kernel_main",
             stack_top = sym __stack_top,
         )
