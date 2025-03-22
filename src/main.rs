@@ -32,7 +32,6 @@ unsafe extern "C" {
     static __free_ram_end: u64;
 }
 
-// Simple bump allocator for kernel use
 pub struct BumpAllocator {
     heap_start: AtomicUsize,
     heap_end: UnsafeCell<usize>,
@@ -40,7 +39,6 @@ pub struct BumpAllocator {
 
 unsafe impl GlobalAlloc for BumpAllocator {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        // Align the allocation
         let align = layout.align();
         let size = layout.size();
 
@@ -69,17 +67,15 @@ unsafe impl GlobalAlloc for BumpAllocator {
 unsafe impl Sync for BumpAllocator {}
 #[global_allocator]
 static ALLOCATOR: BumpAllocator = BumpAllocator {
-    heap_start: AtomicUsize::new(0), // Will be initialized later
-    heap_end: UnsafeCell::new(0),    // Will be initialized later
+    heap_start: AtomicUsize::new(0),
+    heap_end: UnsafeCell::new(0),
 };
 
 #[unsafe(no_mangle)]
 fn kernel_main(_hartid: usize, dtb_pa: usize) {
     unsafe {
         let heap_start = ptr::addr_of!(__free_ram) as usize;
-        let heap_end = heap_start + 16 * 1024 * 1024; // 16MBをヒープに使用
-
-        println!("Initializing heap at {:#x}-{:#x}", heap_start, heap_end);
+        let heap_end = heap_start + 16 * 1024 * 1024;
 
         // グローバルアロケータを初期化
         ALLOCATOR.heap_start.store(heap_start, Ordering::Relaxed);
@@ -96,7 +92,6 @@ fn kernel_main(_hartid: usize, dtb_pa: usize) {
 
 fn init_dt(dtb: usize) {
     let fdt = unsafe { Fdt::from_ptr(dtb as *const u8).unwrap() };
-    println!("--- Device Tree Nodes ---");
     walk_dt(&fdt);
 }
 
@@ -143,7 +138,6 @@ fn virtio_gpu<T: Transport>(transport: T) {
     let (width, height) = gpu.resolution().unwrap();
     let width = width as usize;
     let height = height as usize;
-    println!("GPU resolution is {}x{}", width, height);
     let fb = gpu.setup_framebuffer().unwrap();
     for y in 0..height {
         for x in 0..width {
@@ -154,7 +148,6 @@ fn virtio_gpu<T: Transport>(transport: T) {
         }
     }
     gpu.flush().unwrap();
-    println!("virtio-gpu show graphics....");
     for _ in 0..10000 {
         for _ in 0..10000 {
             unsafe {

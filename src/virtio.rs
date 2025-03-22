@@ -24,7 +24,7 @@ unsafe impl Hal for HalImpl {
         (aligned_paddr, vaddr)
     }
 
-    unsafe fn dma_dealloc(_paddr: PhysAddr, _vaddr: NonNull<u8>, pages: usize) -> i32 {
+    unsafe fn dma_dealloc(_paddr: PhysAddr, _vaddr: NonNull<u8>, _pages: usize) -> i32 {
         0
     }
 
