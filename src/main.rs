@@ -27,7 +27,24 @@ fn kernel_main(_hartid: usize, dtb_pa: usize) {
 
 fn init_dt(dtb: usize) {
     let fdt = unsafe { Fdt::from_ptr(dtb as *const u8).unwrap() };
-    println!("{:#?}", fdt);
+    println!(
+        "This is a devicetree representation of a {}",
+        fdt.root().unwrap().model()
+    );
+    println!(
+        "...which is compatible with at least: {}",
+        fdt.root().unwrap().compatible().first().unwrap()
+    );
+    println!("...and has {} CPU(s)", fdt.cpus().count());
+    println!(
+        "...and has at least one memory location at: {:#X}\n",
+        fdt.memory()
+            .unwrap()
+            .regions()
+            .next()
+            .unwrap()
+            .starting_address as usize
+    );
 }
 
 #[unsafe(link_section = ".text.boot")]
