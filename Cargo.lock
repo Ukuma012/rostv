@@ -9,6 +9,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5c8214115b7bf84099f1309324e63141d4c5d7cc26862f97a0a857dbefe165bd"
 
 [[package]]
+name = "common"
+version = "0.1.0"
+
+[[package]]
 name = "embedded-io"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -24,6 +28,12 @@ dependencies = [
  "quote",
  "syn",
 ]
+
+[[package]]
+name = "flat_device_tree"
+version = "3.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4d29ba76ecf314f211601c5641d6fc4393d8f56a3b7764b3c8544639aad965a9"
 
 [[package]]
 name = "log"
@@ -53,6 +63,8 @@ dependencies = [
 name = "rost_riscv"
 version = "0.1.0"
 dependencies = [
+ "common",
+ "flat_device_tree",
  "virtio-drivers",
 ]
 

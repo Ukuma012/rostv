@@ -1,7 +1,11 @@
 #![no_std]
 #![no_main]
 
+use common::println;
 use core::{arch::asm, ptr};
+use flat_device_tree::Fdt;
+
+mod sbi;
 
 unsafe extern "C" {
     static mut __bss: u64;
@@ -10,14 +14,20 @@ unsafe extern "C" {
 }
 
 #[unsafe(no_mangle)]
-fn kernel_main(hartid: usize, dtb_pa: usize) {
+fn kernel_main(_hartid: usize, dtb_pa: usize) {
     let bss = ptr::addr_of_mut!(__bss);
     let bss_end = ptr::addr_of!(__bss_end);
     unsafe {
         ptr::write_bytes(bss, 0, bss_end as usize - bss as usize);
     }
+    init_dt(dtb_pa);
 
     loop {}
+}
+
+fn init_dt(dtb: usize) {
+    let fdt = unsafe { Fdt::from_ptr(dtb as *const u8).unwrap() };
+    println!("{:#?}", fdt);
 }
 
 #[unsafe(link_section = ".text.boot")]
