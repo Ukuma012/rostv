@@ -3,37 +3,28 @@
 
 use common::println;
 use core::{
-    alloc::GlobalAlloc,
     arch::asm,
     ptr::{self, NonNull},
 };
-use flat_device_tree::{Fdt, node::FdtNode, standard_nodes::Compatible};
-use virtio_drivers::transport::{
-    Transport,
-    mmio::{MmioTransport, VirtIOHeader},
+use flat_device_tree::{node::FdtNode, Fdt};
+use virtio::HalImpl;
+use virtio_drivers::{
+    device::gpu::VirtIOGpu,
+    transport::{
+        mmio::{MmioTransport, VirtIOHeader},
+        DeviceType, Transport,
+    },
 };
 
 extern crate alloc;
 mod sbi;
+mod virtio;
 
 unsafe extern "C" {
     static mut __bss: u64;
     static __bss_end: u64;
     static __stack_top: u64;
 }
-
-struct DummyAllocator;
-
-unsafe impl GlobalAlloc for DummyAllocator {
-    unsafe fn alloc(&self, _layout: core::alloc::Layout) -> *mut u8 {
-        ptr::null_mut()
-    }
-
-    unsafe fn dealloc(&self, _ptr: *mut u8, _layout: core::alloc::Layout) {}
-}
-
-#[global_allocator]
-static ALLOCATOR: DummyAllocator = DummyAllocator;
 
 #[unsafe(no_mangle)]
 fn kernel_main(_hartid: usize, dtb_pa: usize) {
@@ -42,6 +33,7 @@ fn kernel_main(_hartid: usize, dtb_pa: usize) {
     unsafe {
         ptr::write_bytes(bss, 0, bss_end as usize - bss as usize);
     }
+
     init_dt(dtb_pa);
 
     loop {}
@@ -82,9 +74,25 @@ fn virtio_probe(node: FdtNode) {
                     transport.device_type(),
                     transport.version()
                 );
+                virtio_device(transport);
             }
         }
     }
+}
+
+fn virtio_device(transport: impl Transport) {
+    match transport.device_type() {
+        DeviceType::GPU => virtio_gpu(transport),
+        t => println!("Unrecognized virtio device: {:?}", t),
+    }
+}
+
+fn virtio_gpu<T: Transport>(transport: T) {
+    let mut gpu = VirtIOGpu::<HalImpl, T>::new(transport).expect("failed to create gpu driver");
+    let (width, height) = gpu.resolution().expect("failed to get resolution");
+    let width = width as usize;
+    let height = height as usize;
+    log::info!("GPU resolution is {}x{}", width, height);
 }
 
 #[unsafe(link_section = ".text.boot")]
