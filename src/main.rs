@@ -142,9 +142,10 @@ fn virtio_gpu<T: Transport>(transport: T) {
     for y in 0..height {
         for x in 0..width {
             let idx = (y * width + x) * 4;
-            fb[idx] = x as u8;
-            fb[idx + 1] = y as u8;
-            fb[idx + 2] = (x + y) as u8;
+            // BGR Format
+            fb[idx] = 0 as u8;
+            fb[idx + 1] = 255 as u8;
+            fb[idx + 2] = 255 as u8;
         }
     }
     gpu.flush().unwrap();
