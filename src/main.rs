@@ -2,9 +2,18 @@
 #![no_main]
 
 use common::println;
-use core::{arch::asm, ptr};
-use flat_device_tree::Fdt;
+use core::{
+    alloc::GlobalAlloc,
+    arch::asm,
+    ptr::{self, NonNull},
+};
+use flat_device_tree::{Fdt, node::FdtNode, standard_nodes::Compatible};
+use virtio_drivers::transport::{
+    Transport,
+    mmio::{MmioTransport, VirtIOHeader},
+};
 
+extern crate alloc;
 mod sbi;
 
 unsafe extern "C" {
@@ -12,6 +21,19 @@ unsafe extern "C" {
     static __bss_end: u64;
     static __stack_top: u64;
 }
+
+struct DummyAllocator;
+
+unsafe impl GlobalAlloc for DummyAllocator {
+    unsafe fn alloc(&self, _layout: core::alloc::Layout) -> *mut u8 {
+        ptr::null_mut()
+    }
+
+    unsafe fn dealloc(&self, _ptr: *mut u8, _layout: core::alloc::Layout) {}
+}
+
+#[global_allocator]
+static ALLOCATOR: DummyAllocator = DummyAllocator;
 
 #[unsafe(no_mangle)]
 fn kernel_main(_hartid: usize, dtb_pa: usize) {
@@ -27,24 +49,42 @@ fn kernel_main(_hartid: usize, dtb_pa: usize) {
 
 fn init_dt(dtb: usize) {
     let fdt = unsafe { Fdt::from_ptr(dtb as *const u8).unwrap() };
+    println!("--- Device Tree Nodes ---");
     println!(
         "This is a devicetree representation of a {}",
         fdt.root().unwrap().model()
     );
-    println!(
-        "...which is compatible with at least: {}",
-        fdt.root().unwrap().compatible().first().unwrap()
-    );
-    println!("...and has {} CPU(s)", fdt.cpus().count());
-    println!(
-        "...and has at least one memory location at: {:#X}\n",
-        fdt.memory()
-            .unwrap()
-            .regions()
-            .next()
-            .unwrap()
-            .starting_address as usize
-    );
+    walk_dt(&fdt);
+}
+
+fn walk_dt(fdt: &Fdt) {
+    for node in fdt.all_nodes() {
+        if let Some(compatible) = node.compatible() {
+            if compatible.all().any(|s| s == "virtio,mmio") {
+                virtio_probe(node)
+            }
+        }
+    }
+}
+
+fn virtio_probe(node: FdtNode) {
+    if let Some(reg) = node.reg().next() {
+        let paddr = reg.starting_address as usize;
+        let size = reg.size.unwrap();
+        let vaddr = paddr;
+        let header = NonNull::new(vaddr as *mut VirtIOHeader).unwrap();
+        match unsafe { MmioTransport::new(header, size) } {
+            Err(_) => return,
+            Ok(transport) => {
+                println!(
+                    "Detected virtio MMIO device with vendor id {:#X}, device type {:?}, version {:?}",
+                    transport.vendor_id(),
+                    transport.device_type(),
+                    transport.version()
+                );
+            }
+        }
+    }
 }
 
 #[unsafe(link_section = ".text.boot")]
